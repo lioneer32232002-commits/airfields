@@ -73,6 +73,64 @@
     return s !== '' && !EMPTY_RE.test(s);
   }
 
+  /* 側欄裡「沒有這回事」的各種寫法統一顯示成「無」（資料本身不動） */
+  var NONE_WORDS = { '無': 1, '無資料': 1, '沒有': 1, '未見': 1, '無跡': 1, '無遺跡': 1, '無存': 1 };
+
+  function tidyNone(v) {
+    var s = String(v == null ? '' : v).trim();
+    return NONE_WORDS[s] ? '無' : s;
+  }
+
+  /* ---------- 孤字 ---------- */
+
+  /* 中文每個字都能斷行，Safari 也還不支援 text-wrap: pretty，所以動態產生的文字
+     一律把結尾兩個字（含結尾標點）包進不可斷行的 span，避免一個字掉到下一行。 */
+
+  var TAIL_PUNCT = '，。、；：？！（）「」『』〈〉《》〔〕【】—…‧·～’”';
+  var OPEN_PUNCT = '（「『〈《〔【';
+
+  function lastTextNode(node) {
+    if (!node) return null;
+    if (node.nodeType === 3) return /\S/.test(node.nodeValue) ? node : null;
+    for (var i = node.childNodes.length - 1; i >= 0; i--) {
+      var t = lastTextNode(node.childNodes[i]);
+      if (t) return t;
+    }
+    return null;
+  }
+
+  function noOrphan(node) {
+    if (!node) return node;
+    var t = lastTextNode(node);
+    if (!t) return node;
+    var s = t.nodeValue.replace(/\s+$/, '');
+    if (s.length < 4) return node;
+
+    var i = s.length;
+    var words = 0;
+    while (i > 0 && (s.length - i) < 8) {
+      var ch = s.charAt(i - 1);
+      i--;
+      if (TAIL_PUNCT.indexOf(ch) < 0 && !/\s/.test(ch)) words++;
+      if (words >= 2) break;
+    }
+    /* 左緣剛好切在開頭標點（例如「（」）後面時，把它一起吞進來 */
+    while (i > 0 && OPEN_PUNCT.indexOf(s.charAt(i - 1)) >= 0) i--;
+    if (i <= 0 || i >= s.length) return node;
+
+    var span = el('span', 'nb', s.slice(i));
+    t.nodeValue = s.slice(0, i);
+    if (t.nextSibling) t.parentNode.insertBefore(span, t.nextSibling);
+    else t.parentNode.appendChild(span);
+    return node;
+  }
+
+  function setText(node, text) {
+    node.textContent = text == null ? '' : text;
+    if (node.textContent) noOrphan(node);
+    return node;
+  }
+
   /* runway_heading 可能是中文敘述（例如「東北—西南」），非數字一律當成沒有 */
   function normHeading(v) {
     var n = null;
@@ -153,8 +211,8 @@
         buildMap();
         buildFilters();
         renderList();
-        openFromHash();
-        window.addEventListener('hashchange', openFromHash);
+        openFromHash(true);
+        window.addEventListener('hashchange', function () { openFromHash(false); });
       })
       .catch(function (e) {
         var note = $('map-note');
@@ -215,7 +273,7 @@
     var active = records.filter(function (r) { return ACTIVE_KINDS[r.kindKey]; }).length;
     var remains = records.filter(function (r) { return hasText(r.remains); }).length;
     var heritage = records.filter(function (r) { return hasText(r.heritage); }).length;
-    $('lede').textContent = '1945 年，台灣有 ' + records.length + ' 座飛行場。';
+    setText($('lede'), '1945 年，台灣有 ' + records.length + ' 座飛行場。');
     $('t-all').textContent = records.length;
     $('t-active').textContent = active;
     $('t-remains').textContent = remains;
@@ -470,7 +528,7 @@
     var shown = records.filter(passes);
 
     if (!shown.length) {
-      wrap.appendChild(el('p', 'empty', '這個條件下沒有飛行場。'));
+      wrap.appendChild(noOrphan(el('p', 'empty', '這個條件下沒有飛行場。')));
       return;
     }
 
@@ -491,10 +549,12 @@
         b.dataset.name = r.name_zh;
         if (current === r) b.setAttribute('aria-current', 'true');
 
-        var name = el('span', 'r-name', r.name_zh);
+        var name = el('span', 'r-name');
+        /* 名稱自己一個 span：孤字處理與 hover 變色只作用在名稱，不含軍種小字 */
+        name.appendChild(noOrphan(el('span', 'r-nt', r.name_zh)));
         if (hasText(r.operator)) name.appendChild(el('span', 'r-op', r.operator));
         b.appendChild(name);
-        b.appendChild(el('span', 'r-today', hasText(r.today) ? r.today : '不詳'));
+        b.appendChild(noOrphan(el('span', 'r-today', hasText(r.today) ? r.today : '不詳')));
         b.appendChild(el('span', 'tag', r.kindLabel));
 
         b.addEventListener('click', function () { open(r, true); });
@@ -516,20 +576,20 @@
 
   function fact(dl, label, value, tag, always) {
     if (!always && !hasText(value) && !tag) return;
-    var text = (value != null && String(value).trim() !== '') ? String(value).trim() : '不詳';
+    var text = tidyNone(value) || '不詳';
     var row = document.createElement('div');
     row.appendChild(el('dt', null, label));
-    var dd = el('dd', null, text);
+    var dd = noOrphan(el('dd', null, text));
     if (tag) dd.appendChild(el('span', 'tag', tag));
     row.appendChild(dd);
     dl.appendChild(row);
   }
 
   function renderPanel(r) {
-    $('p-name').textContent = r.name_zh;
-    $('p-ja').textContent = (hasText(r.name_ja) && r.name_ja !== r.name_zh) ? r.name_ja : '';
-    $('p-alias').textContent = (r.aliases && r.aliases.length)
-      ? '亦稱：' + r.aliases.join('、') : '';
+    setText($('p-name'), r.name_zh);
+    setText($('p-ja'), (hasText(r.name_ja) && r.name_ja !== r.name_zh) ? r.name_ja : '');
+    setText($('p-alias'), (r.aliases && r.aliases.length)
+      ? '亦稱：' + r.aliases.join('、') : '');
 
     var dl = $('p-facts');
     dl.textContent = '';
@@ -543,23 +603,24 @@
     fact(dl, '遺跡', String(r.remains || '').trim() || '無', null, true);
     fact(dl, '文化資產', String(r.heritage || '').trim() || '無', null, true);
 
-    $('p-history').textContent = hasText(r.history) ? r.history : '';
+    setText($('p-history'), hasText(r.history) ? r.history : '');
 
     var conf = '';
     if (r.conf === 'landmark') conf = '位置：依今日地標';
     else if (r.conf === 'estimated') conf = '位置：鄉鎮估計';
     if (conf && hasText(r.coord_source)) conf += '（' + r.coord_source + '）';
-    $('p-conf').textContent = conf;
+    setText($('p-conf'), conf);
 
+    /* 來源：不印網域全名、不加底線，只留短名（去掉 www），用全形「、」分隔 */
     var src = $('p-sources');
     src.textContent = '';
     var list = Array.isArray(r.sources) ? r.sources.filter(function (u) {
       return typeof u === 'string' && /^https?:\/\//.test(u);
     }) : [];
     if (list.length) {
-      src.appendChild(document.createTextNode('來源　'));
+      src.appendChild(el('span', 'p-src-label', '來源'));
       list.forEach(function (u, i) {
-        if (i) src.appendChild(document.createTextNode('　'));
+        if (i) src.appendChild(document.createTextNode('、'));
         var a = el('a', null, shortHost(u));
         a.href = u;
         a.target = '_blank';
@@ -621,14 +682,29 @@
     setTimeout(function () { hashLock = false; }, 0);
   }
 
-  function openFromHash() {
+  function scrollMapToTop() {
+    var mw = $('mapwrap');
+    if (!mw || !mw.scrollIntoView) return;
+    var go = function () { mw.scrollIntoView({ block: 'start' }); };
+    go();
+    if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+      document.fonts.ready.then(go);
+    }
+    window.addEventListener('load', go);
+  }
+
+  function openFromHash(initial) {
     if (hashLock) return;
     var m = /^#a=(.*)$/.exec(location.hash || '');
     if (!m) return;
     var name = '';
     try { name = decodeURIComponent(m[1]); } catch (e) { name = m[1]; }
     var r = byName[name];
-    if (r) open(r, true);
+    if (!r) return;
+    open(r, true);
+    /* 用網址直接開某一座時，把地圖捲到視窗頂，不然一進來看到的是開場那段。
+       字型晚一步載完會把開場那段撐高，捲動位置就跑掉了，所以字型就緒後再捲一次。 */
+    if (initial === true) scrollMapToTop();
   }
 
   /* ---------- 側欄互動 ---------- */

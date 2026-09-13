@@ -15,9 +15,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@700&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/style.css?v=1">
+<link rel="stylesheet" href="assets/style.css?v=2">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
-<script src="assets/app.js?v=1" defer></script>
+<script src="assets/app.js?v=2" defer></script>
 </head>
 <body>
 
@@ -30,24 +30,24 @@
 
   <div class="col">
     <section class="hero" aria-labelledby="lede">
-      <h1 class="serif lede" id="lede">1945 年，台灣有八十座飛行場。</h1>
-      <p class="meta">現在它們是機場、基地、園區、農田、學校、車站。</p>
+      <h1 class="serif lede" id="lede">1945 年，台灣有八十座<span class="nb">飛行場。</span></h1>
+      <p class="meta">現在它們是<span class="nb">機場</span>、<span class="nb">基地</span>、<span class="nb">園區</span>、<span class="nb">農田</span>、<span class="nb">學校</span>、<span class="nb">車站。</span></p>
 
       <dl class="totals">
         <div class="total">
-          <dt class="label">座數</dt>
+          <dt class="label"><span class="nb">座數</span></dt>
           <dd class="num serif" id="t-all">—</dd>
         </div>
         <div class="total">
-          <dt class="label">仍是機場或基地</dt>
+          <dt class="label">仍是機場或<span class="nb">基地</span></dt>
           <dd class="num serif" id="t-active">—</dd>
         </div>
         <div class="total">
-          <dt class="label">有遺跡</dt>
+          <dt class="label">有<span class="nb">遺跡</span></dt>
           <dd class="num serif" id="t-remains">—</dd>
         </div>
         <div class="total">
-          <dt class="label">列為文化資產</dt>
+          <dt class="label">列為文化<span class="nb">資產</span></dt>
           <dd class="num serif" id="t-heritage">—</dd>
         </div>
       </dl>
@@ -55,7 +55,7 @@
   </div>
 
   <div class="bleed">
-    <div class="mapwrap">
+    <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
       <p class="map-note" id="map-note" hidden></p>
     </div>
@@ -79,16 +79,16 @@
 
     <section data-sec aria-labelledby="how-h">
       <h2 class="sec-h" id="how-h"><span class="sec-n">03</span><span class="sec-t">怎麼看</span></h2>
-      <p class="how">點一座，切到衛星，就看得到跑道變成了什麼。</p>
-      <p class="how">位置寫「鄉鎮估計」的，表示史料只到鄉鎮，圖上畫成虛線圓。</p>
-      <p class="how">「舊地圖」是日治 1921 與 1924 年地形圖，早於多數飛行場。歡迎補充來源。</p>
+      <p class="how">點一座，切到衛星，就看得到跑道變成了<span class="nb">什麼。</span></p>
+      <p class="how">位置寫「鄉鎮估計」的，表示史料只到鄉鎮，圖上畫成<span class="nb">虛線圓。</span></p>
+      <p class="how">「舊地圖」是日治 1921 與 1924 年地形圖，早於多數飛行場。歡迎補充<span class="nb">來源。</span></p>
     </section>
 
   </div>
 </main>
 
 <footer class="site-foot">
-  <p>資料整理自中研院 GIS 專題中心、維基百科、國家文化資產網等公開資料；圖磚版權見地圖角落。</p>
+  <p>資料整理自中研院 GIS 專題中心、維基百科、國家文化資產網等公開資料；圖磚版權見地圖<span class="nb">角落。</span></p>
   <a class="brand" href="https://skyfaring.net">Skyfaring</a>
 </footer>
 
@@ -97,7 +97,7 @@
   <div class="p-scroll">
     <div class="p-head">
       <h2 class="serif p-name" id="p-name" tabindex="-1"></h2>
-      <button type="button" class="p-close" id="p-close">關閉</button>
+      <button type="button" class="p-close" id="p-close"><span class="nb">關閉</span></button>
     </div>
     <p class="p-ja" id="p-ja"></p>
     <p class="p-ja" id="p-alias"></p>
@@ -105,10 +105,10 @@
     <p class="p-history" id="p-history"></p>
     <p class="p-conf" id="p-conf"></p>
     <p class="p-sources" id="p-sources"></p>
-    <p class="p-links">
-      <a id="p-gmap" href="#" target="_blank" rel="noopener">在 Google 地圖打開</a>
-      <button type="button" class="linkish" id="p-back">回總覽</button>
-    </p>
+    <div class="p-links">
+      <a class="btn-line" id="p-gmap" href="#" target="_blank" rel="noopener"><span class="btn-t">在 Google 地圖<span class="nb">打開</span></span></a>
+      <button type="button" class="btn-line" id="p-back"><span class="btn-t">回<span class="nb">總覽</span></span></button>
+    </div>
   </div>
 </aside>
 
