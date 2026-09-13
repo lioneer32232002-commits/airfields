@@ -163,6 +163,18 @@
     return node;
   }
 
+  /* name_zh 形如「七甲機場（歸仁飛行場／關廟飛行場）」：主名是第一個全形「（」之前
+     那一段，括號內是別名或狀態的補充。顯示層一律拆開，資料與網址 hash 仍用完整的
+     name_zh（它是鍵，改了等於換網址）。全形括號才算，半形不處理。 */
+  function splitName(name) {
+    var s = String(name == null ? '' : name);
+    var i = s.indexOf('（');
+    if (i <= 0) return { main: s, extra: '' };
+    var extra = s.slice(i + 1);
+    if (extra.charAt(extra.length - 1) === '）') extra = extra.slice(0, -1);
+    return { main: s.slice(0, i), extra: extra.trim() };
+  }
+
   /* runway_heading 可能是中文敘述（例如「東北—西南」），非數字一律當成沒有 */
   function normHeading(v) {
     var n = null;
@@ -303,6 +315,9 @@
     for (var k in r) if (Object.prototype.hasOwnProperty.call(r, k)) o[k] = r[k];
     o.id = 'af-' + i;
     o.name_zh = String(r.name_zh || '（無名）');
+    var nm = splitName(o.name_zh);
+    o.nameMain = nm.main;
+    o.nameExtra = nm.extra;
     o.kindKey = normKind(r);
     o.kindLabel = KIND_LABEL[o.kindKey];
     o.countyKey = normCounty(r.county);
@@ -634,7 +649,8 @@
       dashArray: r.conf === 'estimated' ? '2,2' : null,
       bubblingMouseEvents: false
     });
-    marker.bindTooltip(r.name_zh, { direction: 'top', offset: [0, -8], sticky: false });
+    /* tooltip 只放主名，括號裡的補充留給清單與側欄 */
+    marker.bindTooltip(r.nameMain, { direction: 'top', offset: [0, -8], sticky: false });
     marker.on('click', function () { open(r, true); });
     group.push(marker);
 
@@ -817,11 +833,18 @@
     renderList();
   }
 
+  /* 從圖表或縣市直條按下去時，捲到篩選區的上緣：清單就接在它下面，
+     也看得到目前選了什麼。兩欄版有 sticky 頁首，靠 CSS 的 scroll-margin-top 讓位。 */
   function scrollToList() {
-    var h = $('list-h');
+    var h = $('filter-sec');
     if (!h || !h.scrollIntoView) return;
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     h.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  /* ≥1100px 是兩欄：右欄地圖固定在視窗裡，側欄覆蓋在地圖上 */
+  function isTwoCol() {
+    return !!(window.matchMedia && window.matchMedia('(min-width: 1100px)').matches);
   }
 
   function passes(r) {
@@ -871,8 +894,11 @@
         if (current === r) b.setAttribute('aria-current', 'true');
 
         var name = el('span', 'r-name');
-        /* 名稱自己一個 span：孤字處理與 hover 變色只作用在名稱，不含軍種小字 */
-        name.appendChild(noOrphan(el('span', 'r-nt', r.name_zh)));
+        /* 主名自己一個 span：孤字處理與 hover 變色只作用在主名，不含括號補充與軍種小字 */
+        name.appendChild(noOrphan(el('span', 'r-nt', r.nameMain)));
+        if (r.nameExtra) {
+          name.appendChild(noOrphan(el('span', 'r-ex', '（' + r.nameExtra + '）')));
+        }
         if (hasText(r.operator)) name.appendChild(el('span', 'r-op', r.operator));
         b.appendChild(name);
         b.appendChild(noOrphan(el('span', 'r-today', hasText(r.today) ? r.today : '不詳')));
@@ -1037,11 +1063,24 @@
     });
   }
 
+  /* 標題只放主名。短名整串不斷行（不能斷在「飛／行」中間），長到放不下才讓它
+     斷行，孤字照 noOrphan 處理。九個字以上才算長——側欄標題那一行放得下八個字。 */
+  function setPanelName(node, main) {
+    node.textContent = '';
+    if (main.length <= 8) node.appendChild(el('span', 'nb', main));
+    else setText(node, main);
+  }
+
   function renderPanel(r) {
-    setText($('p-name'), r.name_zh);
-    setText($('p-ja'), (hasText(r.name_ja) && r.name_ja !== r.name_zh) ? r.name_ja : '');
+    setPanelName($('p-name'), r.nameMain);
+    setText($('p-also'), r.nameExtra);
+    /* 日文名跟主名一樣（八十一筆裡有四十一筆）就不要再印一次 */
+    var ja = hasText(r.name_ja) && r.name_ja !== r.name_zh && r.name_ja !== r.nameMain
+      ? r.name_ja : '';
+    setText($('p-ja'), ja);
+    /* 亦稱也只列主名（重複那一筆的名字可能自己也帶括號） */
     setText($('p-alias'), (r.aliases && r.aliases.length)
-      ? '亦稱：' + r.aliases.join('、') : '');
+      ? '亦稱：' + r.aliases.map(function (a) { return splitName(a).main; }).join('、') : '');
 
     renderThumbs(r);
 
@@ -1091,6 +1130,20 @@
     try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; }
   }
 
+  /* 兩欄版的側欄覆蓋在地圖右側（不擠壓左欄），所以飛過去的那一點要往左讓
+     半個側欄寬，不然點會躲在面板後面。單欄版是整個版面往左讓，不必偏移。 */
+  function flyToRecord(r) {
+    var z = 14;
+    var target = L.latLng(r.lat, r.lon);
+    if (isTwoCol()) {
+      var shift = parseFloat(cssVar('--panel-w')) / 2;
+      if (isFinite(shift) && shift > 0) {
+        target = map.unproject(map.project(target, z).add([shift, 0]), z);
+      }
+    }
+    map.flyTo(target, z);
+  }
+
   function open(r, fly) {
     current = r;
     renderPanel(r);
@@ -1102,7 +1155,7 @@
     if (map) map.invalidateSize({ animate: false });
     if (fly) {
       setBase('sat');
-      map.flyTo([r.lat, r.lon], 14);
+      flyToRecord(r);
     }
     setHash(r.name_zh);
     void p.offsetWidth; /* 先讓 visibility 生效，焦點才進得去 */
@@ -1137,9 +1190,10 @@
     setTimeout(function () { hashLock = false; }, 0);
   }
 
+  /* 兩欄版的地圖本來就在視窗裡（sticky），不必捲；只有上下疊的版面要捲 */
   function scrollMapToTop() {
     var mw = $('mapwrap');
-    if (!mw || !mw.scrollIntoView) return;
+    if (!mw || !mw.scrollIntoView || isTwoCol()) return;
     var go = function () { mw.scrollIntoView({ block: 'start' }); };
     go();
     if (document.fonts && document.fonts.ready && document.fonts.ready.then) {

@@ -148,6 +148,33 @@ CI（`.github/workflows/validate.yml`）在每次 push 與 PR 都跑同一支。
 已經寫明，不要在文案上把它說成 1944 年圖。哪天找到真的有內容的 1940 年代圖層代碼，
 換掉 `assets/app.js` 裡 `layers.old` 的兩個 URL、把按鈕改名即可。
 
+## 頁面（版型）
+
+DOM 只有一套，順序就是**手機的閱讀順序**：開場句 → 地圖 → 篩選 → 清單 → 數字（三張圖表）
+→ 怎麼看 → 頁尾。`<main class="shell">` 底下每個區塊是一個 `.sec`，區塊之間只有一條細線
+（`.sec + .sec`），沒有「01 篩選」那種編號小標了。
+
+**≥ 1100px 是兩欄**（`.shell` 變成 grid）：上面那些區塊全部排進左欄（1100–1279px 寬 400px、
+≥1280px 寬 460px），`.mapcol` 跳到右欄 `grid-row: 1 / -1`、`position: sticky`，高度
+`calc(100vh - var(--head-h))`，所以捲左欄時地圖一直在視窗裡。三件事互相咬合，改一個要改全部：
+
+- `--head-h`（68px）同時是 `.site-head` 的 `height` 與地圖 sticky 的 `top`，頁首也是 sticky。
+- `grid-template-rows: repeat(8, auto)` 要先宣告出來，`grid-row: 1 / -1` 才有終點（負行號不認
+  隱式列）。左欄現在六個區塊，多加區塊要跟著加列數。
+- `overflow-x: hidden` 只能放在 `html`。放在 `body` 會讓 body 變成捲動容器，兩個 sticky 都失效。
+
+側欄（詳細面板）在兩欄版是**覆蓋在地圖右側**，不推左欄（`body.panel-open` 的 padding 只在
+721–1099px 生效）。因此兩件事要處理：打開時 Leaflet 右側的控制項與 attribution 往左讓
+`--panel-w`（出處不能被蓋掉），飛過去的座標用 `flyToRecord()` 往東偏半個面板寬，點才不會
+躲在面板後面。地圖下緣的可信度圖例在兩欄版改貼在地圖內左下角（細框半透明小條）。
+
+`name_zh` 形如「七甲機場（歸仁飛行場／關廟飛行場）」，顯示層一律用 `splitName()` 拆成主名與
+括號內補充：側欄標題只放主名（短名包成 `.nb` 不斷行，不能斷在「飛／行」中間），括號內容跟
+日文名、亦稱同一組小字列；清單列主名 17px、括號與軍種 15px 次要色；tooltip 只放主名。
+**hash 與資料仍用完整的 `name_zh`**。日文名等於主名時（八十一筆裡四十一筆）不重複印。
+
+改了 CSS 或 JS 要把 `index.html` 裡兩個 `?v=` 一起加一號，否則 Cloudflare 與瀏覽器會給舊檔。
+
 ## 視覺約束
 
 - 配色與 logbook 同一套（淺底 `#f6f3ee`／深底 `#101210`），襯線只用在標題與數字。

@@ -15,83 +15,86 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@700&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/style.css?v=3">
+<link rel="stylesheet" href="assets/style.css?v=4">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
-<script src="assets/app.js?v=3" defer></script>
+<script src="assets/app.js?v=4" defer></script>
 </head>
 <body>
 
 <header class="site-head">
-  <a class="brand" href="https://skyfaring.net">Skyfaring</a>
-  <span class="site-name">舊飛行場</span>
+  <div class="head-in">
+    <a class="brand" href="https://skyfaring.net">Skyfaring</a>
+    <span class="site-name">舊飛行場</span>
+  </div>
 </header>
 
-<main id="main">
+<!-- 桌機 ≥1100px 是兩欄：這一層的區塊全部排進左欄，.mapcol 跳到右欄並固定。
+     DOM 順序＝手機的閱讀順序（開場、地圖、篩選、清單、數字、怎麼看、頁尾）。 -->
+<main class="shell" id="shell">
 
-  <div class="col">
-    <section class="hero" aria-labelledby="lede">
-      <h1 class="serif lede" id="lede">1945 年，台灣有八十座<span class="nb">飛行場。</span></h1>
-      <p class="meta">現在它們是<span class="nb">機場</span>、<span class="nb">基地</span>、<span class="nb">園區</span>、<span class="nb">農田</span>、<span class="nb">學校</span>、<span class="nb">車站。</span></p>
+  <section class="sec hero" aria-labelledby="lede">
+    <h1 class="serif lede" id="lede">1945 年，台灣有八十座<span class="nb">飛行場。</span></h1>
+    <p class="meta">現在它們是<span class="nb">機場</span>、<span class="nb">基地</span>、<span class="nb">園區</span>、<span class="nb">農田</span>、<span class="nb">學校</span>、<span class="nb">車站。</span></p>
+  </section>
 
-      <div class="charts">
-        <section class="chart" aria-labelledby="ch-kind">
-          <h2 class="chart-h" id="ch-kind"><span class="nb">現在是什麼</span></h2>
-          <div class="bars" id="kind-bars" role="group" aria-label="依今日用途"></div>
-        </section>
-
-        <section class="chart" aria-labelledby="ch-share">
-          <h2 class="chart-h" id="ch-share"><span class="nb">剩下什麼</span></h2>
-          <div class="ratios" id="ratio-rows"></div>
-        </section>
-      </div>
-
-      <section class="chart chart-wide" aria-labelledby="ch-svc">
-        <h2 class="chart-h" id="ch-svc"><span class="nb">誰的飛行場</span></h2>
-        <div class="stack" id="svc-stack"></div>
-        <div class="stack-labels" id="svc-labels"></div>
-        <p class="stack-legend" id="svc-legend"></p>
-      </section>
-    </section>
-  </div>
-
-  <div class="bleed">
+  <div class="mapcol" id="mapcol">
     <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
       <p class="map-note" id="map-note"></p>
     </div>
   </div>
 
-  <div class="col">
+  <section class="sec" id="filter-sec" aria-labelledby="filter-h">
+    <h2 class="sr-only" id="filter-h">篩選</h2>
+    <div class="kind-filter" id="kind-filter" role="group" aria-label="依今日用途"></div>
+    <div class="county-chart" id="county-chart" role="group" aria-label="依縣市"></div>
+    <p class="county-filter">
+      <label class="sr-only" for="county-select">縣市</label>
+      <select id="county-select"></select>
+    </p>
+  </section>
 
-    <section data-sec aria-labelledby="filter-h">
-      <h2 class="sec-h" id="filter-h"><span class="sec-n">01</span><span class="sec-t">篩選</span></h2>
-      <div class="kind-filter" id="kind-filter" role="group" aria-label="依今日用途"></div>
-      <div class="county-chart" id="county-chart" role="group" aria-label="依縣市"></div>
-      <p class="county-filter">
-        <label class="sr-only" for="county-select">縣市</label>
-        <select id="county-select"></select>
-      </p>
+  <section class="sec" id="list-sec" aria-labelledby="list-h">
+    <h2 class="sr-only" id="list-h">清單</h2>
+    <div id="list"></div>
+  </section>
+
+  <section class="sec" id="num-sec" aria-labelledby="num-h">
+    <h2 class="sec-h" id="num-h"><span class="nb">數字</span></h2>
+
+    <div class="charts">
+      <section class="chart" aria-labelledby="ch-kind">
+        <h3 class="chart-h" id="ch-kind"><span class="nb">現在是什麼</span></h3>
+        <div class="bars" id="kind-bars" role="group" aria-label="依今日用途"></div>
+      </section>
+
+      <section class="chart" aria-labelledby="ch-share">
+        <h3 class="chart-h" id="ch-share"><span class="nb">剩下什麼</span></h3>
+        <div class="ratios" id="ratio-rows"></div>
+      </section>
+    </div>
+
+    <section class="chart chart-wide" aria-labelledby="ch-svc">
+      <h3 class="chart-h" id="ch-svc"><span class="nb">誰的飛行場</span></h3>
+      <div class="stack" id="svc-stack"></div>
+      <div class="stack-labels" id="svc-labels"></div>
+      <p class="stack-legend" id="svc-legend"></p>
     </section>
+  </section>
 
-    <section data-sec aria-labelledby="list-h">
-      <h2 class="sec-h" id="list-h"><span class="sec-n">02</span><span class="sec-t">清單</span></h2>
-      <div id="list"></div>
-    </section>
+  <section class="sec" id="how-sec" aria-labelledby="how-h">
+    <h2 class="sec-h" id="how-h"><span class="nb">怎麼看</span></h2>
+    <p class="how">點一座，切到衛星，就看得到跑道變成了<span class="nb">什麼。</span></p>
+    <p class="how">位置寫「鄉鎮估計」的，表示史料只到鄉鎮，圖上畫成<span class="nb">虛線圓。</span></p>
+    <p class="how">「舊地圖」是日治 1921 與 1924 年地形圖，早於多數飛行場。歡迎補充<span class="nb">來源。</span></p>
+  </section>
 
-    <section data-sec aria-labelledby="how-h">
-      <h2 class="sec-h" id="how-h"><span class="sec-n">03</span><span class="sec-t">怎麼看</span></h2>
-      <p class="how">點一座，切到衛星，就看得到跑道變成了<span class="nb">什麼。</span></p>
-      <p class="how">位置寫「鄉鎮估計」的，表示史料只到鄉鎮，圖上畫成<span class="nb">虛線圓。</span></p>
-      <p class="how">「舊地圖」是日治 1921 與 1924 年地形圖，早於多數飛行場。歡迎補充<span class="nb">來源。</span></p>
-    </section>
+  <footer class="site-foot" role="contentinfo">
+    <p>資料整理自中研院 GIS 專題中心、維基百科、國家文化資產網等公開資料；圖磚版權見地圖<span class="nb">角落。</span></p>
+    <a class="brand" href="https://skyfaring.net">Skyfaring</a>
+  </footer>
 
-  </div>
 </main>
-
-<footer class="site-foot">
-  <p>資料整理自中研院 GIS 專題中心、維基百科、國家文化資產網等公開資料；圖磚版權見地圖<span class="nb">角落。</span></p>
-  <a class="brand" href="https://skyfaring.net">Skyfaring</a>
-</footer>
 
 <aside class="panel" id="panel" aria-labelledby="p-name" aria-hidden="true">
   <div class="sheet-grip" id="sheet-grip"><span></span></div>
@@ -100,8 +103,9 @@
       <h2 class="serif p-name" id="p-name" tabindex="-1"></h2>
       <button type="button" class="p-close" id="p-close"><span class="nb">關閉</span></button>
     </div>
-    <p class="p-ja" id="p-ja"></p>
-    <p class="p-ja" id="p-alias"></p>
+    <p class="p-sub" id="p-also"></p>
+    <p class="p-sub" id="p-ja"></p>
+    <p class="p-sub" id="p-alias"></p>
     <div class="thumbs" id="p-thumbs" hidden>
       <button type="button" class="thumb" id="th-old">
         <span class="th-box" id="th-old-box"></span>

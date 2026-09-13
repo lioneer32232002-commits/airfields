@@ -15,6 +15,12 @@
   --pad: 24px;
   --col: 1040px;
   --panel-w: 380px;
+  /* 兩欄版（≥1100px）用的三個尺寸：頁首高度、左欄寬度、左欄左右留白。
+     頁首高度同時是 .site-head 的 height 與地圖 sticky 的 top，兩邊共用一個值，
+     字型晚一步載完也不會錯位。 */
+  --head-h: 68px;
+  --side-w: 460px;
+  --side-pad: 32px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,7 +40,12 @@
 *::before,
 *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+/* overflow-x 放在 html，不要放在 body：body 上的 overflow-x: hidden 會讓 body 變成
+   捲動容器，裡面的 position: sticky（頁首、右欄地圖）就黏不住了。 */
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
 
 body {
   margin: 0;
@@ -44,7 +55,6 @@ body {
   font-weight: 400;
   font-size: 19px;
   line-height: 1.75;
-  overflow-x: hidden;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
@@ -79,18 +89,19 @@ a:hover { color: var(--accent-hover); }
 
 /* ---------- layout ---------- */
 
-.site-head,
-.col,
+.head-in,
+.sec,
 .site-foot {
   max-width: var(--col);
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
   padding-left: var(--pad);
   padding-right: var(--pad);
 }
 
-.bleed { width: 100%; }
+.mapcol { width: 100%; }
 
-.site-head {
+.head-in {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -117,15 +128,15 @@ a:hover { color: var(--accent-hover); }
   white-space: nowrap;
 }
 
-.col > section { padding-block: 56px; }
+.sec { padding-block: 44px; }
 
-.col > section + section { border-top: 1px solid var(--rule); }
+/* 區塊之間只有一條細線。篩選區的上一個兄弟是地圖（.mapcol），所以窄畫面時
+   篩選不會多出一條線——地圖自己有下框。兩欄版再補上去。 */
+.sec + .sec { border-top: 1px solid var(--rule); }
 
+/* 區塊小標：只有文字，沒有編號、沒有尾線 */
 .sec-h {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 0 0 32px;
+  margin: 0 0 24px;
   font-family: var(--sans);
   font-weight: 500;
   font-size: 16px;
@@ -134,29 +145,9 @@ a:hover { color: var(--accent-hover); }
   color: var(--muted);
 }
 
-.sec-h .sec-n {
-  font-family: var(--mono);
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  white-space: nowrap;
-}
-
-.sec-h .sec-t {
-  text-wrap: balance;
-  white-space: nowrap;
-}
-
-.sec-h::after {
-  content: "";
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--rule);
-}
-
 /* ---------- hero ---------- */
 
-.col > section.hero { padding-top: 28px; padding-bottom: 48px; }
+.sec.hero { padding-top: 26px; padding-bottom: 36px; }
 
 .lede {
   margin: 0;
@@ -185,7 +176,7 @@ a:hover { color: var(--accent-hover); }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 34px 48px;
-  margin: 44px 0 0;
+  margin: 0;
 }
 
 .chart { min-width: 0; }
@@ -367,8 +358,8 @@ a:hover { color: var(--accent-hover); }
 .mapwrap {
   position: relative;
   width: 100%;
-  height: min(70vh, 820px);
-  min-height: 440px;
+  height: min(60vh, 620px);
+  min-height: 380px;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
@@ -523,13 +514,11 @@ a:hover { color: var(--accent-hover); }
 
 /* ---------- filters ---------- */
 
+/* 用途文字鈕：不再上下加框，區塊之間那條線就夠了 */
 .kind-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 22px;
-  padding: 12px 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
 }
 
 .kind-btn {
@@ -665,11 +654,13 @@ a:hover { color: var(--accent-hover); }
   white-space: nowrap;
 }
 
+/* 一列＝主名（前景色 17px）＋括號補充與軍種（次要色 15px）＋「現在是」（次要色，
+   最多兩行）＋用途標籤。窄欄位時堆疊，中間寬度才排成三欄。 */
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: 4px 18px;
+  gap: 3px 14px;
   width: 100%;
   padding: 13px 0;
   border: 0;
@@ -690,9 +681,17 @@ a:hover { color: var(--accent-hover); }
 .row[aria-current="true"] .r-today { color: var(--fg); }
 
 .r-name {
+  grid-column: 1;
   min-width: 0;
   overflow-wrap: anywhere;
   text-wrap: pretty;
+}
+
+/* 括號裡的別名、狀態（「偽，未接收」等）：次要色小字，接在主名後面 */
+.r-ex {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .r-op {
@@ -703,16 +702,24 @@ a:hover { color: var(--accent-hover); }
   white-space: nowrap;
 }
 
+/* 「現在是」最多兩行，超過就截斷——清單是用來掃的，不是用來讀完的 */
 .r-today {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  grid-column: 1;
   min-width: 0;
-  font-size: 16px;
+  overflow: hidden;
+  font-size: 15px;
   font-weight: 400;
+  line-height: 1.6;
   color: var(--muted);
   overflow-wrap: anywhere;
-  text-wrap: pretty;
 }
 
 .tag {
+  grid-column: 2;
+  grid-row: 1;
   padding: 1px 8px;
   border: 1px solid var(--rule);
   font-size: 14px;
@@ -771,13 +778,14 @@ a:hover { color: var(--accent-hover); }
   gap: 14px;
 }
 
+/* 標題只放主名（括號內的補充移到下面的小字列），所以能整串不斷行：
+   短名交給 app.js 包成 .nb，長到放不下時才讓它斷行（noOrphan 顧孤字）。 */
 .p-name {
   margin: 0;
   font-size: 28px;
   line-height: 1.4;
   letter-spacing: 0.01em;
-  overflow-wrap: anywhere;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .p-name:focus { outline: 0; }
@@ -798,15 +806,18 @@ a:hover { color: var(--accent-hover); }
 
 .p-close:hover { color: var(--fg); }
 
-.p-ja {
-  margin: 8px 0 0;
+/* 標題下的小字列：括號內的補充、日文名、亦稱，三行同一組 */
+/* 三行都用同一個上緣間距：其中一行空的時候會 display:none，
+   相鄰選擇器算不準（DOM 上還是相鄰），所以不用 + 的寫法。 */
+.p-sub {
+  margin: 6px 0 0;
   font-size: 15px;
   line-height: 1.6;
   color: var(--muted);
   text-wrap: pretty;
 }
 
-.p-ja:empty { display: none; }
+.p-sub:empty { display: none; }
 
 /* ---------- 側欄縮圖：當年／今日 ---------- */
 
@@ -1033,18 +1044,144 @@ a:hover { color: var(--accent-hover); }
   text-wrap: pretty;
 }
 
-/* ---------- wide ---------- */
+/* ---------- wide（單欄，721–1099px） ---------- */
 
-@media (min-width: 721px) {
-  /* 側欄打開時把版面往左讓，不遮住內容 */
+@media (min-width: 721px) and (max-width: 1099px) {
+  /* 側欄打開時把版面往左讓，不遮住內容。兩欄版不這樣做（見下面） */
   body.panel-open { padding-right: var(--panel-w); }
+
+  /* 寬度夠時清單排成三欄：名稱｜現在是｜標籤 */
+  .row {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+    gap: 4px 18px;
+  }
+
+  .r-today { grid-column: 2; font-size: 16px; }
+  .tag { grid-column: 3; }
 }
 
 @media (min-width: 720px) {
   :root { --pad: 48px; }
-  .col > section { padding-block: 72px; }
-  .col > section.hero { padding-top: 36px; padding-bottom: 48px; }
-  .sec-h { margin-bottom: 40px; }
+  .sec { padding-block: 56px; }
+  .sec.hero { padding-top: 34px; padding-bottom: 40px; }
+  .sec-h { margin-bottom: 32px; }
+}
+
+/* ---------- 兩欄探索式版面（≥1100px） ----------
+
+   左欄捲動（就是整頁捲動），右欄地圖 sticky 貼在頁首下面、固定一個視窗高。
+   頁首也是 sticky，它的 height 與地圖的 top 共用 --head-h，兩者永遠對齊。 */
+
+@media (min-width: 1100px) {
+  :root { --side-w: 400px; }
+
+  .site-head {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    height: var(--head-h);
+    background: var(--bg);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .head-in {
+    align-items: center;
+    height: 100%;
+    max-width: none;
+    padding: 0 var(--side-pad);
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: var(--side-w) minmax(0, 1fr);
+    /* 左欄六個區塊＋兩列備用。列數要先宣告出來，地圖才能用 grid-row: 1 / -1
+       一路撐到底（負的行號不認隱式列）；多出來的空列高度是 0。 */
+    grid-template-rows: repeat(8, auto);
+    align-items: start;
+  }
+
+  .shell > * {
+    grid-column: 1;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: var(--side-pad);
+    padding-right: var(--side-pad);
+  }
+
+  .shell > .mapcol {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: var(--head-h);
+    height: calc(100vh - var(--head-h));
+    padding: 0;
+    border-left: 1px solid var(--rule);
+  }
+
+  .mapwrap {
+    height: 100%;
+    min-height: 0;
+    border: 0;
+  }
+
+  /* 圖例移到地圖內的左下角，細框半透明小條，跟 attribution 同一種樣子 */
+  .mapwrap .map-note {
+    right: auto;
+    width: max-content;
+    max-width: calc(100% - 240px);
+    padding: 5px 12px;
+    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    border-right: 1px solid var(--rule);
+    font-size: 14px;
+    gap: 3px 18px;
+  }
+
+  /* 側欄是覆蓋在地圖右側，不擠壓左欄；但不能把 Leaflet 右邊的控制項與
+     attribution 蓋掉（出處一定要看得到），所以打開時把它們往左讓。 */
+  body.panel-open .leaflet-top.leaflet-right,
+  body.panel-open .leaflet-bottom.leaflet-right { right: var(--panel-w); }
+
+  .sec { padding-block: 30px; }
+  .sec.hero { padding-top: 24px; padding-bottom: 26px; }
+  .sec-h { margin-bottom: 20px; }
+
+  /* 篩選在兩欄版緊接在開場句下面，需要自己的上緣線 */
+  #filter-sec {
+    border-top: 1px solid var(--rule);
+    scroll-margin-top: calc(var(--head-h) + 8px);
+  }
+
+  .lede {
+    font-size: 30px;
+    line-height: 1.45;
+    max-width: none;
+  }
+
+  .meta { margin-top: 12px; }
+
+  /* 圖表在窄欄裡改成單欄堆疊 */
+  .charts { grid-template-columns: 1fr; gap: 26px; }
+  .chart-wide { margin-top: 26px; }
+  .bar-v { font-size: 19px; }
+  .ratio-row { grid-template-columns: minmax(0, auto) minmax(0, 1fr) 4.4em; }
+
+  .county-chart { margin-top: 20px; }
+  .cty-bar { height: 58px; }
+  .cty-fill { width: 6px; }
+  .county-filter { margin-top: 20px; }
+
+  .site-foot {
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 22px;
+    padding-bottom: 44px;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root { --side-w: 460px; }
 }
 
 /* ---------- narrow ---------- */
@@ -1053,7 +1190,7 @@ a:hover { color: var(--accent-hover); }
   .mapwrap { height: min(60vh, 560px); min-height: 360px; }
 
   /* 圖表在手機上改成上下排 */
-  .charts { grid-template-columns: 1fr; gap: 30px; margin-top: 44px; }
+  .charts { grid-template-columns: 1fr; gap: 30px; }
   .chart-wide { margin-top: 30px; }
   .bar-v { font-size: 19px; }
   .ratio-row { grid-template-columns: minmax(0, auto) minmax(0, 1fr) 4.2em; }
@@ -1070,15 +1207,6 @@ a:hover { color: var(--accent-hover); }
   .cty-fill { width: 6px; }
 
   .site-foot { flex-direction: column; gap: 12px; }
-
-  .row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2px 14px;
-  }
-
-  .r-name { grid-column: 1; }
-  .r-today { grid-column: 1; }
-  .tag { grid-column: 2; grid-row: 1; }
 
   .panel {
     top: auto;
