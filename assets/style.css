@@ -176,36 +176,190 @@ a:hover { color: var(--accent-hover); }
   text-wrap: pretty;
 }
 
-.totals {
+/* ---------- charts ---------- */
+
+/* 一種數量只用一個色相（--accent）。數值與標籤用文字色，不塗成資料色。
+   長條細、無圓角、無陰影；軸線省掉，只留分區的 1px rule。 */
+
+.charts {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 32px 24px;
-  margin: 52px 0 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px 48px;
+  margin: 44px 0 0;
 }
 
-.total {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.chart { min-width: 0; }
+
+.chart-wide { margin-top: 34px; }
+
+.chart-h {
+  margin: 0 0 18px;
   padding-top: 10px;
   border-top: 1px solid var(--rule);
-}
-
-.label {
-  margin: 0;
+  font-family: var(--sans);
+  font-weight: 400;
   font-size: 15px;
   line-height: 1.5;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--muted);
-  text-wrap: balance;
 }
 
-.num {
-  margin: 10px 0 0;
-  font-size: 44px;
-  line-height: 1;
-  letter-spacing: -0.015em;
+/* 水平長條：標籤｜細長條｜數字 */
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 4.6em minmax(0, 1fr) 2.4em;
+  align-items: center;
+  gap: 0 14px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--sans);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bar-l {
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--muted);
   white-space: nowrap;
+}
+
+.bar-track {
+  display: block;
+  min-width: 0;
+  height: 9px;
+}
+
+.bar-fill {
+  display: block;
+  height: 9px;
+  min-width: 2px;
+  background: var(--accent);
+}
+
+.bar-v {
+  font-size: 20px;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bar-row:hover .bar-l { color: var(--fg); }
+
+.bar-row[aria-pressed="true"] .bar-l { color: var(--fg); font-weight: 500; }
+.bar-row[aria-pressed="true"] .bar-v { font-weight: 700; }
+
+/* 比例條：填到比例，其餘留 rule 色 */
+
+.ratio-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) 4.4em;
+  align-items: center;
+  gap: 0 14px;
+  padding: 6px 0;
+}
+
+.ratio-l {
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ratio-track {
+  display: block;
+  min-width: 0;
+  height: 9px;
+  background: var(--rule);
+}
+
+.ratio-fill {
+  display: block;
+  height: 9px;
+  min-width: 2px;
+  background: var(--accent);
+}
+
+.ratio-v {
+  font-size: 19px;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 100％ 堆疊條：accent 四個明度＋2px 底色縫 */
+
+.stack {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+}
+
+.seg {
+  display: block;
+  flex: 0 1 0;
+  min-width: 0;
+  background: var(--accent);
+}
+
+.stack-labels {
+  display: flex;
+  gap: 2px;
+  margin-top: 9px;
+}
+
+.sl {
+  flex: 0 1 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+/* 太窄的段：標籤收進圖例，格子留著撐版位（用 visibility，才不會被窄螢幕的
+   display:block 覆寫掉，露出半個字） */
+.sl-hide { visibility: hidden; }
+
+.sl-n { color: var(--muted); letter-spacing: 0.04em; }
+
+.sl-v {
+  margin-left: 7px;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--fg);
+}
+
+.stack-legend {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.stack-legend:empty { display: none; }
+
+.lg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.lg-swatch {
+  display: block;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
 }
 
 /* ---------- map ---------- */
@@ -225,18 +379,33 @@ a:hover { color: var(--accent-hover); }
   background: var(--bg);
 }
 
+/* 地圖下緣的圖例，永遠顯示（讀取失敗時同一條變成錯誤訊息） */
 .map-note {
   position: absolute;
   left: 0; right: 0; bottom: 0;
   z-index: 600;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 26px;
   margin: 0;
   padding: 8px var(--pad);
   background: var(--bg);
   border-top: 1px solid var(--rule);
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1.6;
   color: var(--muted);
   text-wrap: pretty;
 }
+
+/* 記號跟地圖點同一個樣子；衛星層時地圖點轉黃，圖例固定用 accent 不跳色 */
+.lg-mk {
+  display: block;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.lg-t { white-space: nowrap; }
 
 /* Leaflet chrome：細框、無圓角、無陰影、無底線 */
 
@@ -385,7 +554,67 @@ a:hover { color: var(--accent-hover); }
   font-weight: 500;
 }
 
-.county-filter { margin: 20px 0 0; }
+/* 縣市直條圖：由北到南一根一根，點一根等於選那個縣市 */
+
+.county-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  margin: 26px 0 0;
+}
+
+.cty {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0 1px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.cty-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 72px;
+}
+
+.cty-fill {
+  display: block;
+  width: 8px;
+  min-height: 2px;
+  background: var(--accent);
+}
+
+.cty-n {
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--muted);
+}
+
+.cty:hover .cty-n { color: var(--fg); }
+
+.cty[aria-pressed="true"] .cty-fill { background: var(--fg); }
+.cty[aria-pressed="true"] .cty-n { color: var(--fg); font-weight: 500; }
+
+/* 一根窄到放不下兩個字時，縣市名一個字一行 */
+.cty-stack .cty-n {
+  max-width: 1em;
+  margin: 0 auto;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.county-filter { margin: 26px 0 0; }
 
 #county-select {
   appearance: none;
@@ -579,6 +808,84 @@ a:hover { color: var(--accent-hover); }
 
 .p-ja:empty { display: none; }
 
+/* ---------- 側欄縮圖：當年／今日 ---------- */
+
+.thumbs {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0 0;
+}
+
+.thumb {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.th-box {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  background: var(--land);
+}
+
+/* 2×2 張 256px 圖磚，translate 讓該點落在方框正中央 */
+.th-grid {
+  position: absolute;
+  left: 0; top: 0;
+  width: 512px;
+  height: 512px;
+}
+
+.th-t {
+  position: absolute;
+  display: block;
+  width: 256px;
+  height: 256px;
+}
+
+.th-pin {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 6px; height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--accent);
+  outline: 1px solid var(--bg);
+}
+
+.th-empty { display: flex; align-items: center; justify-content: center; }
+
+.th-none { font-size: 14px; color: var(--muted); }
+
+.th-cap {
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+}
+
+.th-src {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.thumb:hover .th-box { border-color: var(--accent); }
+.thumb:hover .th-cap { color: var(--accent); }
+
 .p-facts {
   margin: 22px 0 0;
   padding-top: 16px;
@@ -610,6 +917,19 @@ a:hover { color: var(--accent-hover); }
 }
 
 .p-facts .tag { margin-left: 8px; }
+
+/* 跑道方位小羅盤 */
+
+.p-hdg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmp { flex: 0 0 auto; display: block; }
+.cmp-ring { stroke: var(--rule); }
+.cmp-line { stroke: var(--accent); }
+.p-hdg-t { white-space: nowrap; }
 
 .p-history {
   margin: 22px 0 0;
@@ -651,9 +971,10 @@ a:hover { color: var(--accent-hover); }
 .p-sources a { color: var(--accent); text-decoration: none; }
 .p-sources a:hover { color: var(--accent-hover); }
 
+/* 兩顆按鈕依內容寬、不折行，不再各佔一半 */
 .p-links {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 26px 0 0;
   padding-top: 18px;
@@ -663,11 +984,12 @@ a:hover { color: var(--accent-hover); }
 /* 細框文字按鈕：無圓角、無陰影、無底線 */
 .btn-line {
   appearance: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  padding: 9px 8px;
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding: 9px 16px;
   border: 1px solid var(--rule);
   border-radius: 0;
   background: none;
@@ -682,8 +1004,8 @@ a:hover { color: var(--accent-hover); }
   cursor: pointer;
 }
 
-/* 整段文字包成單一 flex 子項，換行才不會被 flex 拆成兩欄 */
-.btn-t { text-wrap: balance; }
+/* 按鈕文字一律不折行 */
+.btn-t { white-space: nowrap; }
 
 .btn-line:hover {
   color: var(--accent);
@@ -721,7 +1043,7 @@ a:hover { color: var(--accent-hover); }
 @media (min-width: 720px) {
   :root { --pad: 48px; }
   .col > section { padding-block: 72px; }
-  .col > section.hero { padding-top: 36px; padding-bottom: 64px; }
+  .col > section.hero { padding-top: 36px; padding-bottom: 48px; }
   .sec-h { margin-bottom: 40px; }
 }
 
@@ -730,9 +1052,22 @@ a:hover { color: var(--accent-hover); }
 @media (max-width: 720px) {
   .mapwrap { height: min(60vh, 560px); min-height: 360px; }
 
-  .totals { grid-template-columns: repeat(2, 1fr); gap: 28px 18px; margin-top: 44px; }
-  .num { font-size: 36px; }
-  .label { font-size: 15px; letter-spacing: 0.08em; }
+  /* 圖表在手機上改成上下排 */
+  .charts { grid-template-columns: 1fr; gap: 30px; margin-top: 44px; }
+  .chart-wide { margin-top: 30px; }
+  .bar-v { font-size: 19px; }
+  .ratio-row { grid-template-columns: minmax(0, auto) minmax(0, 1fr) 4.2em; }
+
+  /* 段下方的標籤改成兩行，窄段才放得下 */
+  .sl { white-space: normal; }
+  .sl-n, .sl-v { display: block; white-space: nowrap; }
+  .sl-v { margin-left: 0; }
+
+  .map-note { font-size: 14px; gap: 3px 16px; padding: 7px var(--pad); }
+
+  .county-chart { margin-top: 22px; }
+  .cty-bar { height: 60px; }
+  .cty-fill { width: 6px; }
 
   .site-foot { flex-direction: column; gap: 12px; }
 

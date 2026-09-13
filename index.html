@@ -15,9 +15,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@700&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/style.css?v=2">
+<link rel="stylesheet" href="assets/style.css?v=3">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
-<script src="assets/app.js?v=2" defer></script>
+<script src="assets/app.js?v=3" defer></script>
 </head>
 <body>
 
@@ -33,31 +33,31 @@
       <h1 class="serif lede" id="lede">1945 年，台灣有八十座<span class="nb">飛行場。</span></h1>
       <p class="meta">現在它們是<span class="nb">機場</span>、<span class="nb">基地</span>、<span class="nb">園區</span>、<span class="nb">農田</span>、<span class="nb">學校</span>、<span class="nb">車站。</span></p>
 
-      <dl class="totals">
-        <div class="total">
-          <dt class="label"><span class="nb">座數</span></dt>
-          <dd class="num serif" id="t-all">—</dd>
-        </div>
-        <div class="total">
-          <dt class="label">仍是機場或<span class="nb">基地</span></dt>
-          <dd class="num serif" id="t-active">—</dd>
-        </div>
-        <div class="total">
-          <dt class="label">有<span class="nb">遺跡</span></dt>
-          <dd class="num serif" id="t-remains">—</dd>
-        </div>
-        <div class="total">
-          <dt class="label">列為文化<span class="nb">資產</span></dt>
-          <dd class="num serif" id="t-heritage">—</dd>
-        </div>
-      </dl>
+      <div class="charts">
+        <section class="chart" aria-labelledby="ch-kind">
+          <h2 class="chart-h" id="ch-kind"><span class="nb">現在是什麼</span></h2>
+          <div class="bars" id="kind-bars" role="group" aria-label="依今日用途"></div>
+        </section>
+
+        <section class="chart" aria-labelledby="ch-share">
+          <h2 class="chart-h" id="ch-share"><span class="nb">剩下什麼</span></h2>
+          <div class="ratios" id="ratio-rows"></div>
+        </section>
+      </div>
+
+      <section class="chart chart-wide" aria-labelledby="ch-svc">
+        <h2 class="chart-h" id="ch-svc"><span class="nb">誰的飛行場</span></h2>
+        <div class="stack" id="svc-stack"></div>
+        <div class="stack-labels" id="svc-labels"></div>
+        <p class="stack-legend" id="svc-legend"></p>
+      </section>
     </section>
   </div>
 
   <div class="bleed">
     <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
-      <p class="map-note" id="map-note" hidden></p>
+      <p class="map-note" id="map-note"></p>
     </div>
   </div>
 
@@ -66,6 +66,7 @@
     <section data-sec aria-labelledby="filter-h">
       <h2 class="sec-h" id="filter-h"><span class="sec-n">01</span><span class="sec-t">篩選</span></h2>
       <div class="kind-filter" id="kind-filter" role="group" aria-label="依今日用途"></div>
+      <div class="county-chart" id="county-chart" role="group" aria-label="依縣市"></div>
       <p class="county-filter">
         <label class="sr-only" for="county-select">縣市</label>
         <select id="county-select"></select>
@@ -101,13 +102,25 @@
     </div>
     <p class="p-ja" id="p-ja"></p>
     <p class="p-ja" id="p-alias"></p>
+    <div class="thumbs" id="p-thumbs" hidden>
+      <button type="button" class="thumb" id="th-old">
+        <span class="th-box" id="th-old-box"></span>
+        <span class="th-cap">1921／1924<span class="nb">地形圖</span></span>
+        <span class="th-src">中研院臺灣百年<span class="nb">歷史地圖</span></span>
+      </button>
+      <button type="button" class="thumb" id="th-sat">
+        <span class="th-box" id="th-sat-box"></span>
+        <span class="th-cap">今日<span class="nb">衛星</span></span>
+        <span class="th-src">Esri, Maxar, Earthstar<span class="nb"> Geographics</span></span>
+      </button>
+    </div>
     <dl class="p-facts" id="p-facts"></dl>
     <p class="p-history" id="p-history"></p>
     <p class="p-conf" id="p-conf"></p>
     <p class="p-sources" id="p-sources"></p>
     <div class="p-links">
-      <a class="btn-line" id="p-gmap" href="#" target="_blank" rel="noopener"><span class="btn-t">在 Google 地圖<span class="nb">打開</span></span></a>
-      <button type="button" class="btn-line" id="p-back"><span class="btn-t">回<span class="nb">總覽</span></span></button>
+      <a class="btn-line" id="p-gmap" href="#" target="_blank" rel="noopener"><span class="btn-t">在 Google 地圖打開</span></a>
+      <button type="button" class="btn-line" id="p-back"><span class="btn-t">回總覽</span></button>
     </div>
   </div>
 </aside>

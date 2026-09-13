@@ -24,6 +24,12 @@
 
   var ACTIVE_KINDS = { airport: true, airbase: true };
 
+  /* 軍種：由 operator 字串判斷（「陸軍（後海軍亦使用）」算共用）。
+     堆疊條的段序＝這個順序，明度由深到淺。 */
+  var SVC_ORDER = ['陸軍', '海軍', '共用', '不詳'];
+  /* 明度用透明度疊在底色上，淺色深色都通用；下限訂在 0.26，再低在深色底上就看不見了 */
+  var SVC_ALPHA = { '陸軍': 1, '海軍': 0.70, '共用': 0.46, '不詳': 0.26 };
+
   /* 清單分組順序：由北到南 */
   var COUNTY_ORDER = ['基隆', '台北', '新北', '桃園', '新竹', '苗栗', '台中', '彰化',
     '南投', '雲林', '嘉義', '台南', '高雄', '屏東', '宜蘭', '花蓮', '台東', '澎湖'];
@@ -35,6 +41,20 @@
   var SAT_DOT = '#f2d27a';
   var RUNWAY_M = 800;      /* 由中心往兩側各 800 公尺，全長 1.6 公里 */
   var EST_RADIUS_M = 1500; /* 鄉鎮估計的虛線圓半徑 */
+
+  /* 側欄縮圖的圖磚：跟地圖同三個來源，瀏覽器直接向來源請求，本站不代理 */
+  var TILE_SAT = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  var TILE_OLD_A = 'https://gis.sinica.edu.tw/tileserver/file-exists.php?img=JM50K_1924-jpg-{z}-{x}-{y}';
+  var TILE_OLD_B = 'https://gis.sinica.edu.tw/tileserver/file-exists.php?img=JM25K_1921-jpg-{z}-{x}-{y}';
+  var THUMB_Z_SAT = 15;
+  var THUMB_Z_OLD = 14;
+
+  var CONF_ORDER = ['confirmed', 'landmark', 'estimated'];
+  var CONF_LEGEND = {
+    confirmed: '可對上跑道',
+    landmark: '依今日地標',
+    estimated: '鄉鎮估計'
+  };
 
   /* today_kind 缺漏時，只認明確字眼，其餘留「不明」 */
   var KIND_HINTS = [
@@ -55,6 +75,18 @@
   /* ---------- 小工具 ---------- */
 
   function $(id) { return document.getElementById(id); }
+
+  /* 圖表標籤要量寬度，視窗改變就重排一次（節流） */
+  function onResize(fn) {
+    var t = null;
+    window.addEventListener('resize', function () {
+      if (t) clearTimeout(t);
+      t = setTimeout(fn, 120);
+    });
+    if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+      document.fonts.ready.then(fn);
+    }
+  }
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -184,6 +216,48 @@
     return [p2 * 180 / Math.PI, ((l2 * 180 / Math.PI + 540) % 360) - 180];
   }
 
+  /* operator 是自由文字（「陸軍（戰時海軍台南航空隊亦進駐）」等），只看有沒有出現兩個軍種 */
+  function svcOf(operator) {
+    var s = String(operator == null ? '' : operator);
+    var army = s.indexOf('陸軍') >= 0;
+    var navy = s.indexOf('海軍') >= 0;
+    if (army && navy) return '共用';
+    if (navy) return '海軍';
+    if (army) return '陸軍';
+    return '不詳';
+  }
+
+  /* 網頁墨卡托：回傳小數的圖磚座標（整數部分是圖磚編號，小數是磚內比例） */
+  function tileXY(lat, lon, z) {
+    var n = Math.pow(2, z);
+    var x = (lon + 180) / 360 * n;
+    var s = Math.sin(lat * Math.PI / 180);
+    var y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n;
+    return [x, y];
+  }
+
+  function tileUrl(tpl, z, x, y) {
+    return tpl.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  }
+
+  /* 中研院的圖磚在沒有覆蓋的地方回傳 936 bytes 的全透明 PNG（不是 404），
+     所以「有沒有舊圖」只能看畫素。tileserver 帶 Access-Control-Allow-Origin: *，
+     配 crossOrigin 後可以畫進 canvas 取樣，不必多發一次請求。 */
+  function isBlankTile(img) {
+    try {
+      var c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      var g = c.getContext('2d');
+      g.drawImage(img, 0, 0, 64, 64);
+      var px = g.getImageData(0, 0, 64, 64).data;
+      for (var i = 3; i < px.length; i += 4) if (px[i] > 8) return false;
+      return true;
+    } catch (e) {
+      return false; /* 取樣失敗就當它有圖，寧可多顯示 */
+    }
+  }
+
   /* ---------- 狀態 ---------- */
 
   var records = [];
@@ -207,17 +281,20 @@
       .then(function (raw) {
         records = dedupe((Array.isArray(raw) ? raw : []).map(prepare));
         if (!records.length) throw new Error('資料是空的');
-        renderTotals();
+        renderCharts();
         buildMap();
         buildFilters();
         renderList();
+        renderMapLegend();
         openFromHash(true);
         window.addEventListener('hashchange', function () { openFromHash(false); });
+        onResize(function () {
+          layoutSvcLabels();
+          layoutCountyChart();
+        });
       })
       .catch(function (e) {
-        var note = $('map-note');
-        note.hidden = false;
-        note.textContent = '資料讀取失敗：' + e.message;
+        setText($('map-note'), '資料讀取失敗：' + e.message);
       });
   }
 
@@ -267,17 +344,137 @@
     return primary;
   }
 
-  /* ---------- 開場數字 ---------- */
+  /* ---------- 開場圖表 ---------- */
 
-  function renderTotals() {
-    var active = records.filter(function (r) { return ACTIVE_KINDS[r.kindKey]; }).length;
-    var remains = records.filter(function (r) { return hasText(r.remains); }).length;
-    var heritage = records.filter(function (r) { return hasText(r.heritage); }).length;
+  /* 圖表規則：一種數量只用一個色相（--accent），數值與標籤用文字色；
+     長條細、無圓角、無陰影；每一段都有 title 寫完整名稱與座數。 */
+
+  function countBy(fn) {
+    var m = {};
+    records.forEach(function (r) {
+      var k = fn(r);
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
+  }
+
+  function renderCharts() {
     setText($('lede'), '1945 年，台灣有 ' + records.length + ' 座飛行場。');
-    $('t-all').textContent = records.length;
-    $('t-active').textContent = active;
-    $('t-remains').textContent = remains;
-    $('t-heritage').textContent = heritage;
+    renderKindBars();
+    renderRatios();
+    renderSvcStack();
+  }
+
+  /* 「現在是什麼」水平長條：由多到少，點一列等於按 kind 篩選 */
+  function renderKindBars() {
+    var counts = countBy(function (r) { return r.kindKey; });
+    var rows = Object.keys(counts).sort(function (a, b) {
+      if (counts[b] !== counts[a]) return counts[b] - counts[a];
+      return KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b);
+    });
+    var max = rows.reduce(function (m, k) { return Math.max(m, counts[k]); }, 0) || 1;
+
+    var box = $('kind-bars');
+    box.textContent = '';
+    rows.forEach(function (k) {
+      var b = el('button', 'bar-row');
+      b.type = 'button';
+      b.dataset.kind = k;
+      b.title = KIND_LABEL[k] + ' ' + counts[k] + ' 座';
+      b.setAttribute('aria-pressed', filters.kind === k ? 'true' : 'false');
+      b.appendChild(el('span', 'bar-l', KIND_LABEL[k]));
+      var track = el('span', 'bar-track');
+      var fill = el('span', 'bar-fill');
+      fill.style.width = (counts[k] / max * 100).toFixed(2) + '%';
+      track.appendChild(fill);
+      b.appendChild(track);
+      b.appendChild(el('span', 'bar-v serif', String(counts[k])));
+      b.addEventListener('click', function () {
+        setKind(filters.kind === k ? 'all' : k);
+        scrollToList();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  /* 三列比例條：分子填 accent，其餘留 rule 色 */
+  function renderRatios() {
+    var total = records.length;
+    var rows = [
+      ['仍是機場或基地', records.filter(function (r) { return ACTIVE_KINDS[r.kindKey]; }).length],
+      ['有遺跡', records.filter(function (r) { return hasText(r.remains); }).length],
+      ['列為文化資產', records.filter(function (r) { return hasText(r.heritage); }).length]
+    ];
+    var box = $('ratio-rows');
+    box.textContent = '';
+    rows.forEach(function (pair) {
+      var row = el('div', 'ratio-row');
+      row.title = pair[0] + ' ' + pair[1] + '／' + total + ' 座';
+      row.appendChild(el('span', 'ratio-l', pair[0]));
+      var track = el('span', 'ratio-track');
+      var fill = el('span', 'ratio-fill');
+      fill.style.width = (pair[1] / total * 100).toFixed(2) + '%';
+      track.appendChild(fill);
+      row.appendChild(track);
+      row.appendChild(el('span', 'ratio-v serif', pair[1] + '／' + total));
+      box.appendChild(row);
+    });
+  }
+
+  /* 軍種 100％ 堆疊條：accent 的四個明度＋2px 底色縫，標籤直接放段下方，
+     太窄放不下的段改進圖例。段寬用 flex-grow 分配，縫隙才不會讓總寬溢出。 */
+  var svcSegs = [];
+
+  function renderSvcStack() {
+    var counts = countBy(function (r) { return svcOf(r.operator); });
+    svcSegs = SVC_ORDER.filter(function (k) { return counts[k]; })
+      .map(function (k) { return { key: k, n: counts[k] }; });
+
+    var stack = $('svc-stack');
+    var labels = $('svc-labels');
+    stack.textContent = '';
+    labels.textContent = '';
+
+    svcSegs.forEach(function (s) {
+      var seg = el('span', 'seg');
+      seg.style.flexGrow = String(s.n);
+      seg.style.opacity = String(SVC_ALPHA[s.key]);
+      seg.title = s.key + ' ' + s.n + ' 座';
+      stack.appendChild(seg);
+      s.el = seg;
+
+      var cell = el('span', 'sl');
+      cell.style.flexGrow = String(s.n);
+      cell.appendChild(el('span', 'sl-n', s.key));
+      cell.appendChild(el('span', 'sl-v', String(s.n)));
+      labels.appendChild(cell);
+      s.cell = cell;
+    });
+
+    layoutSvcLabels();
+  }
+
+  /* 段太窄（放不下兩個字）就把標籤收到圖例那一行 */
+  function layoutSvcLabels() {
+    if (!svcSegs.length) return;
+    var legend = $('svc-legend');
+    legend.textContent = '';
+    var spill = [];
+    svcSegs.forEach(function (s) {
+      var w = s.el.getBoundingClientRect().width;
+      var narrow = w < 34;
+      s.cell.classList.toggle('sl-hide', narrow);
+      if (narrow) spill.push(s);
+    });
+    spill.forEach(function (s, i) {
+      if (i) legend.appendChild(document.createTextNode('；'));
+      var item = el('span', 'lg-item');
+      var sw = el('span', 'lg-swatch');
+      sw.style.opacity = String(SVC_ALPHA[s.key]);
+      item.appendChild(sw);
+      item.appendChild(el('span', null, s.key + ' ' + s.n));
+      legend.appendChild(item);
+    });
   }
 
   /* ---------- 地圖 ---------- */
@@ -328,17 +525,16 @@
     var bounds = L.latLngBounds(records.map(function (r) { return [r.lat, r.lon]; }));
     map.fitBounds(bounds, { padding: [24, 24] });
 
-    /* 台灣＋澎湖的外框「窄高」，地圖容器「寬扁」，長寬比差很多：fitBounds 會被高度那邊
-       卡住（要同時看到基隆到恆春／池上，高度已經不能再縮），寬度因此多出一大截，結果是
-       把福建沿岸一起帶進畫面。把多出來的寬度平均分兩邊不好看，索性全部推去東側太平洋：
-       可視範圍的西緣貼齊澎湖、留一點海峽空白就好，不要露出金門／廈門。手機直式畫面本來
-       就比較窄高，通常用不到這段位移（shiftEast 會 <= 0）。 */
+    /* 台灣＋澎湖的外框「窄高」，地圖容器「寬扁」：fitBounds 被高度那邊卡住（基隆到恆春
+       的高度已經不能再縮），寬度因此多出一大截。多出來的寬度兩側均分、再往東偏一點點
+       （東 63％／西 37％），台灣才會落在畫面中央偏左、澎湖完整可見；西側露一點福建海岸
+       沒關係，但不要把整個廈門、泉州帶進來。手機直式畫面比較窄高，多出來的寬度少，
+       這段位移也跟著小。 */
     var visible = map.getBounds();
-    var westBufferDeg = 0.25;
-    var shiftEast = (bounds.getWest() - westBufferDeg) - visible.getWest();
-    if (shiftEast > 0) {
+    var slack = (visible.getEast() - visible.getWest()) - (bounds.getEast() - bounds.getWest());
+    if (slack > 0) {
       var c = map.getCenter();
-      map.setView([c.lat, c.lng + shiftEast], map.getZoom(), { animate: false });
+      map.setView([c.lat, c.lng + slack * 0.13], map.getZoom(), { animate: false });
     }
 
     addLayerSwitch();
@@ -354,12 +550,72 @@
         if (!gj) return;
         L.geoJSON(gj, {
           interactive: false,
+          /* 只畫台灣本島與澎湖。金門、連江在畫面西邊很遠的地方，畫了會把視線往外拉，
+             而且它們一座飛行場也沒有。用經度判斷：整個 feature 都在 119.2 以西就跳過。 */
+          filter: function (f) { return featureEast(f) >= 119.2; },
           style: function () {
             return { color: cssVar('--muted'), weight: 0.6, opacity: 0.55, fill: false };
           }
         }).addTo(map);
       })
       .catch(function () { /* 縣界只是輔助，失敗就算了 */ });
+  }
+
+  /* feature 座標裡最東的經度 */
+  function featureEast(f) {
+    var east = -180;
+    (function walk(c) {
+      if (!c) return;
+      if (typeof c[0] === 'number') { if (c[0] > east) east = c[0]; return; }
+      for (var i = 0; i < c.length; i++) walk(c[i]);
+    })(f.geometry && f.geometry.coordinates);
+    return east;
+  }
+
+  /* ---------- 地圖圖例 ---------- */
+
+  /* 三種座標可信度各畫一個跟圖上一樣的記號。地圖點在衛星層會轉黃色，
+     圖例固定用 accent，不隨底圖跳色。 */
+  function confMark(kind) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'lg-mk');
+    svg.setAttribute('width', '16');
+    svg.setAttribute('height', '16');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('aria-hidden', 'true');
+    function circle(r, fill, dash, w) {
+      var c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', '8');
+      c.setAttribute('cy', '8');
+      c.setAttribute('r', String(r));
+      c.setAttribute('fill', fill);
+      c.setAttribute('stroke', 'currentColor');
+      c.setAttribute('stroke-width', String(w));
+      if (dash) c.setAttribute('stroke-dasharray', dash);
+      svg.appendChild(c);
+    }
+    if (kind === 'estimated') {
+      circle(6.6, 'none', '3,2.4', 1);
+      circle(2.6, 'none', '1.8,1.8', 1);
+    } else {
+      circle(3.6, 'currentColor', null, 1);
+    }
+    return svg;
+  }
+
+  function renderMapLegend() {
+    var counts = countBy(function (r) { return r.conf; });
+    var note = $('map-note');
+    note.textContent = '';
+    CONF_ORDER.forEach(function (k) {
+      if (!counts[k]) return;
+      var item = el('span', 'lg-item');
+      item.title = CONF_LEGEND[k] + ' ' + counts[k] + ' 座';
+      item.appendChild(confMark(k));
+      item.appendChild(el('span', 'lg-t', CONF_LEGEND[k] + ' ' + counts[k]));
+      note.appendChild(item);
+    });
   }
 
   function dotColor() { return baseName === 'sat' ? SAT_DOT : cssVar('--accent'); }
@@ -472,14 +728,7 @@
         b.type = 'button';
         b.dataset.kind = pair[0];
         b.setAttribute('aria-pressed', pair[0] === filters.kind ? 'true' : 'false');
-        b.addEventListener('click', function () {
-          filters.kind = pair[0];
-          Array.prototype.forEach.call(box.querySelectorAll('.kind-btn'), function (x) {
-            x.setAttribute('aria-pressed', x.dataset.kind === pair[0] ? 'true' : 'false');
-          });
-          applyFilters();
-          renderList();
-        });
+        b.addEventListener('click', function () { setKind(pair[0]); });
         box.appendChild(b);
       });
 
@@ -496,11 +745,83 @@
         sel.appendChild(o);
       });
     sel.value = filters.county;
-    sel.addEventListener('change', function () {
-      filters.county = sel.value;
-      applyFilters();
-      renderList();
+    sel.addEventListener('change', function () { setCounty(sel.value); });
+
+    buildCountyChart(counties);
+  }
+
+  /* 縣市直條圖：由北到南一根一根，點一根等於選那個縣市（再點一次取消）。
+     沒有飛行場的縣市（例如基隆）不畫空桿，直接不列。 */
+  function buildCountyChart(counties) {
+    var counts = countBy(function (r) { return r.countyKey; });
+    var max = counties.reduce(function (m, c) { return Math.max(m, counts[c] || 0); }, 0) || 1;
+    var box = $('county-chart');
+    box.textContent = '';
+    counties.forEach(function (c) {
+      var n = counts[c] || 0;
+      var b = el('button', 'cty');
+      b.type = 'button';
+      b.dataset.county = c;
+      b.title = c + ' ' + n + ' 座';
+      b.setAttribute('aria-pressed', filters.county === c ? 'true' : 'false');
+      var bar = el('span', 'cty-bar');
+      var fill = el('span', 'cty-fill');
+      fill.style.height = (n / max * 100).toFixed(2) + '%';
+      bar.appendChild(fill);
+      b.appendChild(bar);
+      b.appendChild(el('span', 'cty-n', c));
+      b.addEventListener('click', function () {
+        setCounty(filters.county === c ? 'all' : c);
+        scrollToList();
+      });
+      box.appendChild(b);
     });
+    layoutCountyChart();
+  }
+
+  /* 窄畫面一根只有二十來 px，縣市名讓它一個字一行；夠寬就排成一行 */
+  function layoutCountyChart() {
+    var box = $('county-chart');
+    var first = box.querySelector('.cty');
+    if (!first) return;
+    box.classList.toggle('cty-stack', first.getBoundingClientRect().width < 30);
+  }
+
+  function syncKindUI() {
+    Array.prototype.forEach.call(document.querySelectorAll('.kind-btn'), function (x) {
+      x.setAttribute('aria-pressed', x.dataset.kind === filters.kind ? 'true' : 'false');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.bar-row'), function (x) {
+      x.setAttribute('aria-pressed', x.dataset.kind === filters.kind ? 'true' : 'false');
+    });
+  }
+
+  function syncCountyUI() {
+    $('county-select').value = filters.county;
+    Array.prototype.forEach.call(document.querySelectorAll('.cty'), function (x) {
+      x.setAttribute('aria-pressed', x.dataset.county === filters.county ? 'true' : 'false');
+    });
+  }
+
+  function setKind(k) {
+    filters.kind = k;
+    syncKindUI();
+    applyFilters();
+    renderList();
+  }
+
+  function setCounty(c) {
+    filters.county = c;
+    syncCountyUI();
+    applyFilters();
+    renderList();
+  }
+
+  function scrollToList() {
+    var h = $('list-h');
+    if (!h || !h.scrollIntoView) return;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    h.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   }
 
   function passes(r) {
@@ -585,11 +906,144 @@
     dl.appendChild(row);
   }
 
+  /* 跑道方位小羅盤：細圓框＋一條穿過圓心、依方位角旋轉的線。0° 是正北。 */
+  function compass(deg) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'cmp');
+    svg.setAttribute('width', '28');
+    svg.setAttribute('height', '28');
+    svg.setAttribute('viewBox', '0 0 28 28');
+    svg.setAttribute('aria-hidden', 'true');
+
+    var ring = document.createElementNS(ns, 'circle');
+    ring.setAttribute('cx', '14');
+    ring.setAttribute('cy', '14');
+    ring.setAttribute('r', '12.5');
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke-width', '1');
+    ring.setAttribute('class', 'cmp-ring');
+    svg.appendChild(ring);
+
+    var line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', '14');
+    line.setAttribute('y1', '2.5');
+    line.setAttribute('x2', '14');
+    line.setAttribute('y2', '25.5');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('class', 'cmp-line');
+    line.setAttribute('transform', 'rotate(' + deg + ' 14 14)');
+    svg.appendChild(line);
+
+    return svg;
+  }
+
+  /* 方位角是 0–179，所以只有四個方向詞 */
+  var AXIS_WORD = ['南北向', '東北—西南向', '東西向', '西北—東南向'];
+
+  function axisWord(deg) {
+    return AXIS_WORD[Math.round(((deg % 180) + 180) % 180 / 45) % 4];
+  }
+
+  function headingRow(dl, deg) {
+    var row = document.createElement('div');
+    row.appendChild(el('dt', null, '方位'));
+    var dd = el('dd', 'p-hdg');
+    dd.appendChild(compass(deg));
+    dd.appendChild(el('span', 'p-hdg-t', deg + '°（' + axisWord(deg) + '）'));
+    row.appendChild(dd);
+    dl.appendChild(row);
+  }
+
+  /* ---------- 側欄縮圖：當年／今日 ---------- */
+
+  /* 用 2×2 張 256px 圖磚鋪一個 overflow:hidden 的方框，translate 讓該點落在正中央。
+     origin 依點落在磚內的哪一半決定，該點的位置因此一定落在 [128, 384] 之間，
+     方框再大到 256px 也不會露出邊界。 */
+  function tileMosaic(box, lat, lon, tpls, done) {
+    var z = box.dataset.z ? Number(box.dataset.z) : THUMB_Z_SAT;
+    var xy = tileXY(lat, lon, z);
+    var tx = Math.floor(xy[0]);
+    var ty = Math.floor(xy[1]);
+    var fx = xy[0] - tx;
+    var fy = xy[1] - ty;
+    var ox = fx < 0.5 ? tx - 1 : tx;
+    var oy = fy < 0.5 ? ty - 1 : ty;
+    var px = (xy[0] - ox) * 256;
+    var py = (xy[1] - oy) * 256;
+
+    box.textContent = '';
+    var pending = 0;
+    var centreImgs = [];
+
+    tpls.forEach(function (tpl, layer) {
+      var grid = el('span', 'th-grid');
+      grid.style.transform = 'translate(' + (-px).toFixed(1) + 'px,' + (-py).toFixed(1) + 'px)';
+      box.appendChild(grid);
+      for (var dy = 0; dy < 2; dy++) {
+        for (var dx = 0; dx < 2; dx++) {
+          var img = new Image();
+          img.className = 'th-t';
+          img.decoding = 'async';
+          img.alt = '';
+          img.crossOrigin = 'anonymous';
+          img.style.left = (dx * 256) + 'px';
+          img.style.top = (dy * 256) + 'px';
+          var isCentre = (ox + dx === tx) && (oy + dy === ty);
+          if (isCentre) centreImgs.push({ img: img, layer: layer });
+          pending++;
+          img.addEventListener('load', settle);
+          img.addEventListener('error', function () { this.style.display = 'none'; settle(); });
+          img.src = tileUrl(tpl, z, ox + dx, oy + dy);
+          grid.appendChild(img);
+        }
+      }
+    });
+
+    function settle() {
+      if (--pending > 0) return;
+      if (!done) return;
+      var any = centreImgs.some(function (c) {
+        return c.img.style.display !== 'none' && c.img.naturalWidth && !isBlankTile(c.img);
+      });
+      done(any);
+    }
+  }
+
+  function renderThumbs(r) {
+    var wrap = $('p-thumbs');
+    wrap.hidden = false;
+
+    var oldBox = $('th-old-box');
+    oldBox.dataset.z = String(THUMB_Z_OLD);
+    oldBox.classList.remove('th-empty');
+    /* 1924 五萬分一鋪底、1921 二萬五千分一疊上去：沒覆蓋的那層是全透明圖磚，
+       會自動讓下面那層透出來，跟地圖的「舊地圖」層同一套設定。 */
+    tileMosaic(oldBox, r.lat, r.lon, [TILE_OLD_A, TILE_OLD_B], function (any) {
+      if (any) return;
+      oldBox.textContent = '';
+      oldBox.classList.add('th-empty');
+      oldBox.appendChild(el('span', 'th-none', '此處無舊圖'));
+    });
+
+    var satBox = $('th-sat-box');
+    satBox.dataset.z = String(THUMB_Z_SAT);
+    satBox.classList.remove('th-empty');
+    tileMosaic(satBox, r.lat, r.lon, [TILE_SAT], null);
+
+    [oldBox, satBox].forEach(function (b) {
+      if (b.querySelector('.th-pin')) return;
+      b.appendChild(el('span', 'th-pin'));
+    });
+  }
+
   function renderPanel(r) {
     setText($('p-name'), r.name_zh);
     setText($('p-ja'), (hasText(r.name_ja) && r.name_ja !== r.name_zh) ? r.name_ja : '');
     setText($('p-alias'), (r.aliases && r.aliases.length)
       ? '亦稱：' + r.aliases.join('、') : '');
+
+    renderThumbs(r);
 
     var dl = $('p-facts');
     dl.textContent = '';
@@ -597,6 +1051,7 @@
     fact(dl, '軍種', r.operator);
     fact(dl, '種類', r.kind);
     fact(dl, '啟用', r.opened);
+    if (r.heading != null) headingRow(dl, r.heading);
     fact(dl, '跑道', r.runway_note);
     fact(dl, '現在是', hasText(r.today) ? r.today : '不詳', r.kindLabel);
     /* 遺跡與文化資產一定列出來：寫「無」也是資訊 */
@@ -711,6 +1166,10 @@
 
   function wirePanel() {
     $('p-close').addEventListener('click', close);
+
+    /* 點縮圖＝把主地圖切到那個圖層 */
+    $('th-old').addEventListener('click', function () { setBase('old'); });
+    $('th-sat').addEventListener('click', function () { setBase('sat'); });
 
     $('p-back').addEventListener('click', function () {
       close();
