@@ -263,8 +263,25 @@
     records.forEach(buildLayersFor);
     applyFilters();
 
+    /* 版面（例如側欄寬度、字型）在初次進頁時可能還沒定型，容器尺寸這時量到的
+       值不準，取景會跑掉；fitBounds 前先強迫 Leaflet 重新量一次容器大小。
+       取景已經是依所有飛行場點的 bounds（含澎湖），不是縣界 GeoJSON 的 bounds。 */
+    map.invalidateSize({ animate: false });
     var bounds = L.latLngBounds(records.map(function (r) { return [r.lat, r.lon]; }));
     map.fitBounds(bounds, { padding: [24, 24] });
+
+    /* 台灣＋澎湖的外框「窄高」，地圖容器「寬扁」，長寬比差很多：fitBounds 會被高度那邊
+       卡住（要同時看到基隆到恆春／池上，高度已經不能再縮），寬度因此多出一大截，結果是
+       把福建沿岸一起帶進畫面。把多出來的寬度平均分兩邊不好看，索性全部推去東側太平洋：
+       可視範圍的西緣貼齊澎湖、留一點海峽空白就好，不要露出金門／廈門。手機直式畫面本來
+       就比較窄高，通常用不到這段位移（shiftEast 會 <= 0）。 */
+    var visible = map.getBounds();
+    var westBufferDeg = 0.25;
+    var shiftEast = (bounds.getWest() - westBufferDeg) - visible.getWest();
+    if (shiftEast > 0) {
+      var c = map.getCenter();
+      map.setView([c.lat, c.lng + shiftEast], map.getZoom(), { animate: false });
+    }
 
     addLayerSwitch();
 

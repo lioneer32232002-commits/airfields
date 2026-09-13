@@ -132,6 +132,22 @@ data.forEach((r, i) => {
   if ('confidence' in r && !SOURCE_QUALITY.has(r.confidence)) {
     errors.push(`${label}：confidence 必須是 high / medium / low，目前是 ${JSON.stringify(r.confidence)}`);
   }
+
+  /* 中文欄位的標點一律全形：sources（本身就是網址陣列）與值以 http 開頭的字串
+     （目前只有 coord_source 可能是網址，但已規定改成中文說明）不檢查。 */
+  const HALFWIDTH_PUNCT = /[,()!?;:/]/;
+  for (const [key, value] of Object.entries(r)) {
+    if (key === 'sources') continue;
+    if (typeof value !== 'string') continue;
+    if (/^https?:\/\//.test(value)) continue;
+    if (HALFWIDTH_PUNCT.test(value)) {
+      errors.push(`${label}：${key} 含半形標點（，、（）、；、：、？、／等一律要用全形），目前是 ${JSON.stringify(value)}`);
+    }
+  }
+
+  if (typeof r.coord_source === 'string' && /^https?:\/\//.test(r.coord_source)) {
+    errors.push(`${label}：coord_source 不可以是網址，請改成中文說明座標怎麼來的（網址移到 sources）`);
+  }
 });
 
 /* duplicate_of 要等 name_zh 全收完才能查：必須指向另一筆存在的名稱，
