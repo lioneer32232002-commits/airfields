@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>舊飛行場 — Skyfaring</title>
+<meta name="description" content="1945 年台灣與澎湖的日軍飛行場，一座一座放在地圖上，切到衛星影像看它今天是什麼。">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="舊飛行場 — Skyfaring">
+<meta property="og:description" content="1945 年台灣與澎湖的日軍飛行場，一座一座放在地圖上，切到衛星影像看它今天是什麼。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://airfields.skyfaring.net/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css?v=1">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script src="assets/app.js?v=1" defer></script>
+</head>
+<body>
+
+<header class="site-head">
+  <a class="brand" href="https://skyfaring.net">Skyfaring</a>
+  <span class="site-name">舊飛行場</span>
+</header>
+
+<main id="main">
+
+  <div class="col">
+    <section class="hero" aria-labelledby="lede">
+      <h1 class="serif lede" id="lede">1945 年，台灣有八十座飛行場。</h1>
+      <p class="meta">現在它們是機場、基地、園區、農田、學校、車站。</p>
+
+      <dl class="totals">
+        <div class="total">
+          <dt class="label">座數</dt>
+          <dd class="num serif" id="t-all">—</dd>
+        </div>
+        <div class="total">
+          <dt class="label">仍是機場或基地</dt>
+          <dd class="num serif" id="t-active">—</dd>
+        </div>
+        <div class="total">
+          <dt class="label">有遺跡</dt>
+          <dd class="num serif" id="t-remains">—</dd>
+        </div>
+        <div class="total">
+          <dt class="label">列為文化資產</dt>
+          <dd class="num serif" id="t-heritage">—</dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+
+  <div class="bleed">
+    <div class="mapwrap">
+      <div id="map"></div>
+      <p class="map-note" id="map-note" hidden></p>
+    </div>
+  </div>
+
+  <div class="col">
+
+    <section data-sec aria-labelledby="filter-h">
+      <h2 class="sec-h" id="filter-h"><span class="sec-n">01</span><span class="sec-t">篩選</span></h2>
+      <div class="kind-filter" id="kind-filter" role="group" aria-label="依今日用途"></div>
+      <p class="county-filter">
+        <label class="sr-only" for="county-select">縣市</label>
+        <select id="county-select"></select>
+      </p>
+    </section>
+
+    <section data-sec aria-labelledby="list-h">
+      <h2 class="sec-h" id="list-h"><span class="sec-n">02</span><span class="sec-t">清單</span></h2>
+      <div id="list"></div>
+    </section>
+
+    <section data-sec aria-labelledby="how-h">
+      <h2 class="sec-h" id="how-h"><span class="sec-n">03</span><span class="sec-t">怎麼看</span></h2>
+      <p class="how">點一座，切到衛星，就看得到跑道變成了什麼。</p>
+      <p class="how">位置寫「鄉鎮估計」的，表示史料只到鄉鎮，圖上畫成虛線圓。</p>
+      <p class="how">「舊地圖」是日治 1921 與 1924 年地形圖，早於多數飛行場。歡迎補充來源。</p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site-foot">
+  <p>資料整理自中研院 GIS 專題中心、維基百科、國家文化資產網等公開資料；圖磚版權見地圖角落。</p>
+  <a class="brand" href="https://skyfaring.net">Skyfaring</a>
+</footer>
+
+<aside class="panel" id="panel" aria-labelledby="p-name" aria-hidden="true">
+  <div class="sheet-grip" id="sheet-grip"><span></span></div>
+  <div class="p-scroll">
+    <div class="p-head">
+      <h2 class="serif p-name" id="p-name" tabindex="-1"></h2>
+      <button type="button" class="p-close" id="p-close">關閉</button>
+    </div>
+    <p class="p-ja" id="p-ja"></p>
+    <p class="p-ja" id="p-alias"></p>
+    <dl class="p-facts" id="p-facts"></dl>
+    <p class="p-history" id="p-history"></p>
+    <p class="p-conf" id="p-conf"></p>
+    <p class="p-sources" id="p-sources"></p>
+    <p class="p-links">
+      <a id="p-gmap" href="#" target="_blank" rel="noopener">在 Google 地圖打開</a>
+      <button type="button" class="linkish" id="p-back">回總覽</button>
+    </p>
+  </div>
+</aside>
+
+</body>
+</html>
